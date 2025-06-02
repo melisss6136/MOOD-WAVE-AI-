@@ -1,1 +1,892 @@
-MOON-WAVE-AI-
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mood-Wave AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        /* Styles personnalisés pour la police et le corps */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Couleur de fond douce */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* S'assure que l'application prend toute la hauteur de l'écran */
+            padding: 1rem; /* Espacement autour du contenu */
+        }
+        /* Style pour le conteneur principal de l'application */
+        .app-container {
+            background-color: #ffffff; /* Fond blanc pour la carte */
+            border-radius: 1.5rem; /* Coins arrondis */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); /* Ombre douce */
+            padding: 2rem;
+            max-width: 500px; /* Largeur maximale pour les écrans plus grands */
+            width: 100%; /* Prend toute la largeur disponible sur mobile */
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* Espacement entre les éléments */
+        }
+        /* Style pour les boutons de sélection d'humeur */
+        .mood-button {
+            @apply flex-1 py-3 px-4 rounded-xl text-lg font-semibold transition-all duration-300 ease-in-out;
+            background-color: #e2e8f0; /* Couleur de fond par défaut */
+            color: #4a5568; /* Couleur du texte par défaut */
+            border: 2px solid transparent; /* Bordure transparente par défaut */
+        }
+        .mood-button.selected {
+            background-color: #6366f1; /* Couleur de fond violette pour la sélection */
+            color: #ffffff; /* Texte blanc pour la sélection */
+            border-color: #4f46e5; /* Bordure plus foncée pour la sélection */
+            transform: scale(1.05); /* Effet de légère augmentation à la sélection */
+        }
+        .mood-button:hover:not(.selected) {
+            background-color: #cbd5e1; /* Couleur de fond au survol */
+        }
+        /* Style pour le bouton de génération */
+        .generate-button {
+            @apply w-full py-4 px-6 rounded-xl text-xl font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 transition-all duration-300 ease-in-out shadow-lg;
+        }
+        /* Style pour la zone de résultat */
+        .result-box {
+            @apply bg-indigo-50 p-6 rounded-xl text-gray-800 text-lg leading-relaxed shadow-inner;
+            min-height: 120px; /* Hauteur minimale pour le contenu */
+            display: flex;
+            flex-direction: column; /* Permet d'aligner le texte et le bouton de lecture */
+            justify-content: center;
+            align-items: flex-start; /* Alignement à gauche pour le texte */
+            word-wrap: break-word; /* Assure que le texte s'enroule */
+            text-align: left; /* Texte aligné à gauche pour la lisibilité */
+            position: relative; /* Pour positionner le bouton de lecture */
+        }
+        .result-text {
+            flex-grow: 1; /* Permet au texte de prendre l'espace disponible */
+        }
+        .play-button {
+            @apply absolute bottom-3 right-3 p-2 bg-indigo-200 rounded-full text-indigo-700 hover:bg-indigo-300 transition-colors duration-200;
+        }
+        /* Style pour le bouton de partage */
+        .share-button {
+            @apply w-full py-3 px-6 rounded-xl text-lg font-semibold text-indigo-700 bg-indigo-100 hover:bg-indigo-200 transition-all duration-300 ease-in-out;
+        }
+        /* Style pour le message de chargement */
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #6366f1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Styles pour l'historique des doses */
+        .history-container {
+            @apply bg-gray-100 p-4 rounded-xl shadow-inner mt-6;
+            max-height: 300px; /* Limite la hauteur de l'historique */
+            overflow-y: auto; /* Ajoute une barre de défilement si nécessaire */
+        }
+        .history-item {
+            @apply bg-white p-3 rounded-lg shadow-sm mb-2 text-left;
+            border-left: 4px solid #6366f1; /* Petite barre colorée sur le côté */
+        }
+        .history-item p {
+            @apply text-gray-700 text-base;
+        }
+        .history-item small {
+            @apply text-gray-500 text-xs;
+        }
+        .user-id-display {
+            @apply text-sm text-gray-500 mt-4;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">Mood-Wave AI</h1>
+        <p class="text-gray-600 text-lg mb-6">Choisissez votre humeur et recevez une micro-dose de bien-être personnalisée !</p>
+
+        <div class="flex flex-wrap justify-center gap-3 mb-6">
+            <button class="mood-button" data-mood="stress">Stressé(e)</button>
+            <button class="mood-button" data-mood="motivation">Manque de Motivation</button>
+            <button class="mood-button" data-mood="anxiete">Anxieux(se)</button>
+            <button class="mood-button" data-mood="calme">Besoin de Calme</button>
+            <button class="mood-button" data-mood="confiance">Manque de Confiance</button>
+            <button class="mood-button" data-mood="gratitude">Gratitude</button>
+        </div>
+
+        <button id="generateBtn" class="generate-button">Générer ma Dose de Bien-Être</button>
+
+        <div id="resultBox" class="result-box">
+            <span id="resultText" class="result-text">Votre micro-dose de bien-être apparaîtra ici.</span>
+            <button id="playBtn" class="play-button hidden" aria-label="Écouter la dose">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                    <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.566 0 3.278l-11.54 6.347c-1.25.687-2.779-.236-2.779-1.643V5.653Z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+
+        <button id="shareBtn" class="share-button hidden">Partager cette Dose</button>
+
+        <div class="history-container">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Mon Historique de Doses</h2>
+            <div id="historyList" class="space-y-3">
+                <p class="text-gray-500">Aucune dose générée pour l'instant.</p>
+            </div>
+        </div>
+        <p id="userIdDisplay" class="user-id-display hidden"></p>
+    </div>
+
+    <script type="module">
+        // Importation des modules Firebase nécessaires
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, addDoc, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Récupération des éléments du DOM
+        const moodButtons = document.querySelectorAll('.mood-button');
+        const generateBtn = document.getElementById('generateBtn');
+        const resultBox = document.getElementById('resultBox');
+        const resultTextSpan = document.getElementById('resultText');
+        const playBtn = document.getElementById('playBtn');
+        const shareBtn = document.getElementById('shareBtn');
+        const historyList = document.getElementById('historyList');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+
+        let selectedMood = ''; // Variable pour stocker l'humeur sélectionnée
+        let currentDoseText = ''; // Variable pour stocker la dose actuellement affichée
+
+        // Initialisation de Firebase
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let userId = null; // Pour stocker l'ID de l'utilisateur
+
+        // Initialisation de la synthèse vocale
+        const synth = window.speechSynthesis;
+        let frenchVoice = null;
+
+        // Charger la voix française dès que les voix sont disponibles
+        synth.onvoiceschanged = () => {
+            const voices = synth.getVoices();
+            frenchVoice = voices.find(voice => voice.lang === 'fr-FR' || voice.lang.startsWith('fr'));
+            if (!frenchVoice) {
+                console.warn("Aucune voix française trouvée. La synthèse vocale utilisera la voix par défaut.");
+            }
+        };
+
+        // Fonction pour lire le texte
+        function speakDose(text) {
+            if (synth.speaking) {
+                synth.cancel(); // Arrête la lecture actuelle si une est en cours
+            }
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'fr-FR';
+            if (frenchVoice) {
+                utterance.voice = frenchVoice;
+            }
+            utterance.pitch = 1; // Hauteur de la voix (1 est la normale)
+            utterance.rate = 1;  // Vitesse de la voix (1 est la normale)
+            synth.speak(utterance);
+        }
+
+        // Écouteur d'état d'authentification Firebase
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                console.log("Utilisateur authentifié:", userId);
+                userIdDisplay.textContent = `ID Utilisateur: ${userId}`;
+                userIdDisplay.classList.remove('hidden');
+                // Charger l'historique des doses une fois l'utilisateur authentifié
+                loadDoseHistory();
+            } else {
+                // Si l'utilisateur n'est pas authentifié, tentez une connexion anonyme
+                try {
+                    await signInAnonymously(auth);
+                    console.log("Connecté anonymement.");
+                } catch (error) {
+                    console.error("Erreur de connexion anonyme:", error);
+                }
+            }
+        });
+
+        // Gestion de la sélection des boutons d'humeur
+        moodButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Retire la classe 'selected' de tous les boutons
+                moodButtons.forEach(btn => btn.classList.remove('selected'));
+                // Ajoute la classe 'selected' au bouton cliqué
+                button.classList.add('selected');
+                selectedMood = button.dataset.mood; // Met à jour l'humeur sélectionnée
+                shareBtn.classList.add('hidden'); // Cache le bouton de partage si une nouvelle humeur est sélectionnée
+                playBtn.classList.add('hidden'); // Cache le bouton de lecture
+                resultTextSpan.textContent = "Votre micro-dose de bien-être apparaîtra ici."; // Réinitialise le texte
+                currentDoseText = ''; // Réinitialise le texte actuel
+                if (synth.speaking) {
+                    synth.cancel(); // Arrête la lecture si en cours
+                }
+            });
+        });
+
+        // Fonction pour générer le prompt en fonction de l'humeur
+        function generatePrompt(mood) {
+            switch (mood) {
+                case 'stress':
+                    return "Génère une micro-dose de bien-être (une affirmation ou un mini-conseil, max 30 mots) pour une personne stressée, axée sur la respiration et le lâcher-prise. Commence par 'Respirez profondément...'";
+                case 'motivation':
+                    return "Crée une micro-dose de motivation (une citation inspirante ou un mini-défi, max 30 mots) pour quelqu'un qui manque d'élan. Commence par 'Chaque petit pas compte...'";
+                case 'anxiete':
+                    return "Rédige une micro-dose de calme (une technique d'ancrage ou une pensée apaisante, max 30 mots) pour une personne ressentant une légère anxiété. Commence par 'Ancrez-vous dans le présent...'";
+                case 'calme':
+                    return "Propose une micro-dose de sérénité (une invitation à la pleine conscience ou une image mentale apaisante, max 30 mots) pour trouver le calme intérieur. Commence par 'Laissez le calme vous envelopper...'";
+                case 'confiance':
+                    return "Écris une micro-dose pour renforcer la confiance en soi (une affirmation positive ou un rappel de force intérieure, max 30 mots). Commence par 'Vous êtes capable...'";
+                case 'gratitude':
+                    return "Génère une micro-dose de gratitude (une suggestion de réflexion ou une affirmation, max 30 mots) pour cultiver l'appréciation. Commence par 'Prenez un instant pour...'";
+                default:
+                    return "Génère une micro-dose de bien-être générale (max 30 mots) pour une journée positive. Commence par 'Aujourd'hui est une opportunité...'";
+            }
+        }
+
+        // Fonction pour appeler l'API Gemini et obtenir le contenu
+        async function getAiContent(prompt) {
+            resultTextSpan.innerHTML = '<div class="loading-spinner"></div>'; // Affiche un spinner de chargement
+            shareBtn.classList.add('hidden'); // Cache le bouton de partage pendant le chargement
+            playBtn.classList.add('hidden'); // Cache le bouton de lecture
+
+            try {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // L'API Key est fournie par l'environnement Canvas
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    resultTextSpan.textContent = text; // Affiche le texte généré
+                    currentDoseText = text; // Stocke le texte pour la lecture et le partage
+                    shareBtn.classList.remove('hidden'); // Affiche le bouton de partage
+                    playBtn.classList.remove('hidden'); // Affiche le bouton de lecture
+                    return text; // Retourne le texte pour un usage potentiel (ex: sauvegarde Firestore)
+                } else {
+                    resultTextSpan.textContent = "Désolé, je n'ai pas pu générer de dose. Veuillez réessayer.";
+                    console.error("Structure de réponse inattendue de l'API Gemini:", result);
+                    return null;
+                }
+            } catch (error) {
+                resultTextSpan.textContent = "Une erreur est survenue lors de la génération. Veuillez vérifier votre connexion.";
+                console.error("Erreur lors de l'appel à l'API Gemini:", error);
+                return null;
+            }
+        }
+
+        // Fonction pour charger l'historique des doses depuis Firestore
+        function loadDoseHistory() {
+            if (!userId) {
+                console.log("UserID non disponible pour charger l'historique.");
+                return;
+            }
+
+            const userDosesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/moodDoses`);
+            const q = query(userDosesCollectionRef, orderBy("timestamp", "desc"), limit(10)); // Limite aux 10 dernières doses
+
+            onSnapshot(q, (snapshot) => {
+                historyList.innerHTML = ''; // Vide l'historique actuel
+                if (snapshot.empty) {
+                    historyList.innerHTML = '<p class="text-gray-500">Aucune dose générée pour l\'instant.</p>';
+                    return;
+                }
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const date = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString('fr-FR') : 'Date inconnue';
+                    const historyItem = document.createElement('div');
+                    historyItem.classList.add('history-item');
+                    historyItem.innerHTML = `
+                        <p>${data.dose}</p>
+                        <small>Humeur: ${data.mood} - ${date}</small>
+                    `;
+                    historyList.appendChild(historyItem);
+                });
+            }, (error) => {
+                console.error("Erreur lors du chargement de l'historique:", error);
+                historyList.innerHTML = '<p class="text-red-500">Erreur de chargement de l\'historique.</p>';
+            });
+        }
+
+        // Écouteur pour le bouton de génération
+        generateBtn.addEventListener('click', async () => {
+            if (!selectedMood) {
+                resultTextSpan.textContent = "Veuillez sélectionner une humeur d'abord !";
+                return;
+            }
+            const prompt = generatePrompt(selectedMood);
+            const generatedText = await getAiContent(prompt);
+
+            // Si le texte est généré avec succès et que l'utilisateur est authentifié, le sauvegarder dans Firestore
+            if (generatedText && userId) {
+                try {
+                    // Chemin de la collection pour les données privées de l'utilisateur
+                    const userDosesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/moodDoses`);
+                    await addDoc(userDosesCollectionRef, {
+                        mood: selectedMood,
+                        dose: generatedText,
+                        timestamp: new Date() // Utilise un horodatage côté client
+                    });
+                    console.log("Dose sauvegardée dans Firestore.");
+                    // L'historique se mettra à jour automatiquement grâce à onSnapshot
+                } catch (e) {
+                    console.error("Erreur lors de l'ajout du document à Firestore:", e);
+                }
+            }
+        });
+
+        // Écouteur pour le bouton de lecture vocale
+        playBtn.addEventListener('click', () => {
+            if (currentDoseText) {
+                speakDose(currentDoseText);
+            }
+        });
+
+        // Écouteur pour le bouton de partage
+        shareBtn.addEventListener('click', () => {
+            const textToShare = currentDoseText;
+            if (navigator.share) {
+                // Utilise l'API Web Share si disponible (pour mobile)
+                navigator.share({
+                    title: 'Ma Micro-Dose Mood-Wave AI',
+                    text: textToShare,
+                    url: window.location.href // L'URL de l'application
+                }).then(() => {
+                    console.log('Contenu partagé avec succès');
+                }).catch((error) => {
+                    console.error('Erreur de partage:', error);
+                    // Fallback pour les navigateurs qui ne supportent pas navigator.share
+                    alert("Copiez le texte ci-dessous pour le partager :\n\n" + textToShare);
+                });
+            } else {
+                // Fallback pour les navigateurs qui ne supportent pas navigator.share
+                // Utilisation de document.execCommand('copy') car navigator.clipboard.writeText() peut ne pas fonctionner dans les iframes
+                const textArea = document.createElement("textarea");
+                textArea.value = textToShare;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    alert("Dose copiée dans le presse-papiers ! Vous pouvez la coller où vous voulez.");
+                } catch (err) {
+                    console.error('Impossible de copier le texte', err);
+                    alert("Impossible de copier la dose. Veuillez la sélectionner et la copier manuellement :\n\n" + textToShare);
+                }
+                document.body.removeChild(textArea);
+            }
+        });
+
+        // Enregistrement du Service Worker pour la PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker enregistré avec succès:', registration);
+                    })
+                    .catch(error => {
+                        console.error('Échec de l\'enregistrement du Service Worker:', error);
+                    });
+            });
+        }
+
+        // Gestion de l'authentification initiale lors du chargement de l'application
+        window.onload = async () => {
+            if (typeof __initial_auth_token !== 'undefined') {
+                try {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                    console.log("Connecté avec le jeton personnalisé.");
+                } catch (error) {
+                    console.error("Erreur de connexion avec le jeton personnalisé:", error);
+                    // En cas d'échec, tenter une connexion anonyme
+                    try {
+                        await signInAnonymously(auth);
+                        console.log("Connecté anonymement après échec du jeton.");
+                    } catch (anonError) {
+                        console.error("Erreur de connexion anonyme après échec du jeton:", anonError);
+                    }
+                }
+            } else {
+                try {
+                    await signInAnonymously(auth);
+                    console.log("Connecté anonymement (pas de jeton personnalisé fourni).");
+                } catch (error) {
+                    console.error("Erreur de connexion anonyme:", error);
+                }
+            }
+        };
+
+    </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mood-Wave AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        /* Styles personnalisés pour la police et le corps */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Couleur de fond douce */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* S'assure que l'application prend toute la hauteur de l'écran */
+            padding: 1rem; /* Espacement autour du contenu */
+        }
+        /* Style pour le conteneur principal de l'application */
+        .app-container {
+            background-color: #ffffff; /* Fond blanc pour la carte */
+            border-radius: 1.5rem; /* Coins arrondis */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); /* Ombre douce */
+            padding: 2rem;
+            max-width: 500px; /* Largeur maximale pour les écrans plus grands */
+            width: 100%; /* Prend toute la largeur disponible sur mobile */
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* Espacement entre les éléments */
+        }
+        /* Style pour les boutons de sélection d'humeur */
+        .mood-button {
+            @apply flex-1 py-3 px-4 rounded-xl text-lg font-semibold transition-all duration-300 ease-in-out;
+            background-color: #e2e8f0; /* Couleur de fond par défaut */
+            color: #4a5568; /* Couleur du texte par défaut */
+            border: 2px solid transparent; /* Bordure transparente par défaut */
+        }
+        .mood-button.selected {
+            background-color: #6366f1; /* Couleur de fond violette pour la sélection */
+            color: #ffffff; /* Texte blanc pour la sélection */
+            border-color: #4f46e5; /* Bordure plus foncée pour la sélection */
+            transform: scale(1.05); /* Effet de légère augmentation à la sélection */
+        }
+        .mood-button:hover:not(.selected) {
+            background-color: #cbd5e1; /* Couleur de fond au survol */
+        }
+        /* Style pour le bouton de génération */
+        .generate-button {
+            @apply w-full py-4 px-6 rounded-xl text-xl font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 transition-all duration-300 ease-in-out shadow-lg;
+        }
+        /* Style pour la zone de résultat */
+        .result-box {
+            @apply bg-indigo-50 p-6 rounded-xl text-gray-800 text-lg leading-relaxed shadow-inner;
+            min-height: 120px; /* Hauteur minimale pour le contenu */
+            display: flex;
+            flex-direction: column; /* Permet d'aligner le texte et le bouton de lecture */
+            justify-content: center;
+            align-items: flex-start; /* Alignement à gauche pour le texte */
+            word-wrap: break-word; /* Assure que le texte s'enroule */
+            text-align: left; /* Texte aligné à gauche pour la lisibilité */
+            position: relative; /* Pour positionner le bouton de lecture */
+        }
+        .result-text {
+            flex-grow: 1; /* Permet au texte de prendre l'espace disponible */
+        }
+        .play-button {
+            @apply absolute bottom-3 right-3 p-2 bg-indigo-200 rounded-full text-indigo-700 hover:bg-indigo-300 transition-colors duration-200;
+        }
+        /* Style pour le bouton de partage */
+        .share-button {
+            @apply w-full py-3 px-6 rounded-xl text-lg font-semibold text-indigo-700 bg-indigo-100 hover:bg-indigo-200 transition-all duration-300 ease-in-out;
+        }
+        /* Style pour le message de chargement */
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #6366f1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Styles pour l'historique des doses */
+        .history-container {
+            @apply bg-gray-100 p-4 rounded-xl shadow-inner mt-6;
+            max-height: 300px; /* Limite la hauteur de l'historique */
+            overflow-y: auto; /* Ajoute une barre de défilement si nécessaire */
+        }
+        .history-item {
+            @apply bg-white p-3 rounded-lg shadow-sm mb-2 text-left;
+            border-left: 4px solid #6366f1; /* Petite barre colorée sur le côté */
+        }
+        .history-item p {
+            @apply text-gray-700 text-base;
+        }
+        .history-item small {
+            @apply text-gray-500 text-xs;
+        }
+        .user-id-display {
+            @apply text-sm text-gray-500 mt-4;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">Mood-Wave AI</h1>
+        <p class="text-gray-600 text-lg mb-6">Choisissez votre humeur et recevez une micro-dose de bien-être personnalisée !</p>
+
+        <div class="flex flex-wrap justify-center gap-3 mb-6">
+            <button class="mood-button" data-mood="stress">Stressé(e)</button>
+            <button class="mood-button" data-mood="motivation">Manque de Motivation</button>
+            <button class="mood-button" data-mood="anxiete">Anxieux(se)</button>
+            <button class="mood-button" data-mood="calme">Besoin de Calme</button>
+            <button class="mood-button" data-mood="confiance">Manque de Confiance</button>
+            <button class="mood-button" data-mood="gratitude">Gratitude</button>
+        </div>
+
+        <button id="generateBtn" class="generate-button">Générer ma Dose de Bien-Être</button>
+
+        <div id="resultBox" class="result-box">
+            <span id="resultText" class="result-text">Votre micro-dose de bien-être apparaîtra ici.</span>
+            <button id="playBtn" class="play-button hidden" aria-label="Écouter la dose">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                    <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.566 0 3.278l-11.54 6.347c-1.25.687-2.779-.236-2.779-1.643V5.653Z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+
+        <button id="shareBtn" class="share-button hidden">Partager cette Dose</button>
+
+        <div class="history-container">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Mon Historique de Doses</h2>
+            <div id="historyList" class="space-y-3">
+                <p class="text-gray-500">Aucune dose générée pour l'instant.</p>
+            </div>
+        </div>
+        <p id="userIdDisplay" class="user-id-display hidden"></p>
+    </div>
+
+    <script type="module">
+        // Importation des modules Firebase nécessaires
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, addDoc, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Récupération des éléments du DOM
+        const moodButtons = document.querySelectorAll('.mood-button');
+        const generateBtn = document.getElementById('generateBtn');
+        const resultBox = document.getElementById('resultBox');
+        const resultTextSpan = document.getElementById('resultText');
+        const playBtn = document.getElementById('playBtn');
+        const shareBtn = document.getElementById('shareBtn');
+        const historyList = document.getElementById('historyList');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+
+        let selectedMood = ''; // Variable pour stocker l'humeur sélectionnée
+        let currentDoseText = ''; // Variable pour stocker la dose actuellement affichée
+
+        // Initialisation de Firebase
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let userId = null; // Pour stocker l'ID de l'utilisateur
+
+        // Initialisation de la synthèse vocale
+        const synth = window.speechSynthesis;
+        let frenchVoice = null;
+
+        // Charger la voix française dès que les voix sont disponibles
+        synth.onvoiceschanged = () => {
+            const voices = synth.getVoices();
+            frenchVoice = voices.find(voice => voice.lang === 'fr-FR' || voice.lang.startsWith('fr'));
+            if (!frenchVoice) {
+                console.warn("Aucune voix française trouvée. La synthèse vocale utilisera la voix par défaut.");
+            }
+        };
+
+        // Fonction pour lire le texte
+        function speakDose(text) {
+            if (synth.speaking) {
+                synth.cancel(); // Arrête la lecture actuelle si une est en cours
+            }
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'fr-FR';
+            if (frenchVoice) {
+                utterance.voice = frenchVoice;
+            }
+            utterance.pitch = 1; // Hauteur de la voix (1 est la normale)
+            utterance.rate = 1;  // Vitesse de la voix (1 est la normale)
+            synth.speak(utterance);
+        }
+
+        // Écouteur d'état d'authentification Firebase
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                console.log("Utilisateur authentifié:", userId);
+                userIdDisplay.textContent = `ID Utilisateur: ${userId}`;
+                userIdDisplay.classList.remove('hidden');
+                // Charger l'historique des doses une fois l'utilisateur authentifié
+                loadDoseHistory();
+            } else {
+                // Si l'utilisateur n'est pas authentifié, tentez une connexion anonyme
+                try {
+                    await signInAnonymously(auth);
+                    console.log("Connecté anonymement.");
+                } catch (error) {
+                    console.error("Erreur de connexion anonyme:", error);
+                }
+            }
+        });
+
+        // Gestion de la sélection des boutons d'humeur
+        moodButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Retire la classe 'selected' de tous les boutons
+                moodButtons.forEach(btn => btn.classList.remove('selected'));
+                // Ajoute la classe 'selected' au bouton cliqué
+                button.classList.add('selected');
+                selectedMood = button.dataset.mood; // Met à jour l'humeur sélectionnée
+                shareBtn.classList.add('hidden'); // Cache le bouton de partage si une nouvelle humeur est sélectionnée
+                playBtn.classList.add('hidden'); // Cache le bouton de lecture
+                resultTextSpan.textContent = "Votre micro-dose de bien-être apparaîtra ici."; // Réinitialise le texte
+                currentDoseText = ''; // Réinitialise le texte actuel
+                if (synth.speaking) {
+                    synth.cancel(); // Arrête la lecture si en cours
+                }
+            });
+        });
+
+        // Fonction pour générer le prompt en fonction de l'humeur
+        function generatePrompt(mood) {
+            switch (mood) {
+                case 'stress':
+                    return "Génère une micro-dose de bien-être (une affirmation ou un mini-conseil, max 30 mots) pour une personne stressée, axée sur la respiration et le lâcher-prise. Commence par 'Respirez profondément...'";
+                case 'motivation':
+                    return "Crée une micro-dose de motivation (une citation inspirante ou un mini-défi, max 30 mots) pour quelqu'un qui manque d'élan. Commence par 'Chaque petit pas compte...'";
+                case 'anxiete':
+                    return "Rédige une micro-dose de calme (une technique d'ancrage ou une pensée apaisante, max 30 mots) pour une personne ressentant une légère anxiété. Commence par 'Ancrez-vous dans le présent...'";
+                case 'calme':
+                    return "Propose une micro-dose de sérénité (une invitation à la pleine conscience ou une image mentale apaisante, max 30 mots) pour trouver le calme intérieur. Commence par 'Laissez le calme vous envelopper...'";
+                case 'confiance':
+                    return "Écris une micro-dose pour renforcer la confiance en soi (une affirmation positive ou un rappel de force intérieure, max 30 mots). Commence par 'Vous êtes capable...'";
+                case 'gratitude':
+                    return "Génère une micro-dose de gratitude (une suggestion de réflexion ou une affirmation, max 30 mots) pour cultiver l'appréciation. Commence par 'Prenez un instant pour...'";
+                default:
+                    return "Génère une micro-dose de bien-être générale (max 30 mots) pour une journée positive. Commence par 'Aujourd'hui est une opportunité...'";
+            }
+        }
+
+        // Fonction pour appeler l'API Gemini et obtenir le contenu
+        async function getAiContent(prompt) {
+            resultTextSpan.innerHTML = '<div class="loading-spinner"></div>'; // Affiche un spinner de chargement
+            shareBtn.classList.add('hidden'); // Cache le bouton de partage pendant le chargement
+            playBtn.classList.add('hidden'); // Cache le bouton de lecture
+
+            try {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // L'API Key est fournie par l'environnement Canvas
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    resultTextSpan.textContent = text; // Affiche le texte généré
+                    currentDoseText = text; // Stocke le texte pour la lecture et le partage
+                    shareBtn.classList.remove('hidden'); // Affiche le bouton de partage
+                    playBtn.classList.remove('hidden'); // Affiche le bouton de lecture
+                    return text; // Retourne le texte pour un usage potentiel (ex: sauvegarde Firestore)
+                } else {
+                    resultTextSpan.textContent = "Désolé, je n'ai pas pu générer de dose. Veuillez réessayer.";
+                    console.error("Structure de réponse inattendue de l'API Gemini:", result);
+                    return null;
+                }
+            } catch (error) {
+                resultTextSpan.textContent = "Une erreur est survenue lors de la génération. Veuillez vérifier votre connexion.";
+                console.error("Erreur lors de l'appel à l'API Gemini:", error);
+                return null;
+            }
+        }
+
+        // Fonction pour charger l'historique des doses depuis Firestore
+        function loadDoseHistory() {
+            if (!userId) {
+                console.log("UserID non disponible pour charger l'historique.");
+                return;
+            }
+
+            const userDosesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/moodDoses`);
+            const q = query(userDosesCollectionRef, orderBy("timestamp", "desc"), limit(10)); // Limite aux 10 dernières doses
+
+            onSnapshot(q, (snapshot) => {
+                historyList.innerHTML = ''; // Vide l'historique actuel
+                if (snapshot.empty) {
+                    historyList.innerHTML = '<p class="text-gray-500">Aucune dose générée pour l\'instant.</p>';
+                    return;
+                }
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const date = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString('fr-FR') : 'Date inconnue';
+                    const historyItem = document.createElement('div');
+                    historyItem.classList.add('history-item');
+                    historyItem.innerHTML = `
+                        <p>${data.dose}</p>
+                        <small>Humeur: ${data.mood} - ${date}</small>
+                    `;
+                    historyList.appendChild(historyItem);
+                });
+            }, (error) => {
+                console.error("Erreur lors du chargement de l'historique:", error);
+                historyList.innerHTML = '<p class="text-red-500">Erreur de chargement de l\'historique.</p>';
+            });
+        }
+
+        // Écouteur pour le bouton de génération
+        generateBtn.addEventListener('click', async () => {
+            if (!selectedMood) {
+                resultTextSpan.textContent = "Veuillez sélectionner une humeur d'abord !";
+                return;
+            }
+            const prompt = generatePrompt(selectedMood);
+            const generatedText = await getAiContent(prompt);
+
+            // Si le texte est généré avec succès et que l'utilisateur est authentifié, le sauvegarder dans Firestore
+            if (generatedText && userId) {
+                try {
+                    // Chemin de la collection pour les données privées de l'utilisateur
+                    const userDosesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/moodDoses`);
+                    await addDoc(userDosesCollectionRef, {
+                        mood: selectedMood,
+                        dose: generatedText,
+                        timestamp: new Date() // Utilise un horodatage côté client
+                    });
+                    console.log("Dose sauvegardée dans Firestore.");
+                    // L'historique se mettra à jour automatiquement grâce à onSnapshot
+                } catch (e) {
+                    console.error("Erreur lors de l'ajout du document à Firestore:", e);
+                }
+            }
+        });
+
+        // Écouteur pour le bouton de lecture vocale
+        playBtn.addEventListener('click', () => {
+            if (currentDoseText) {
+                speakDose(currentDoseText);
+            }
+        });
+
+        // Écouteur pour le bouton de partage
+        shareBtn.addEventListener('click', () => {
+            const textToShare = currentDoseText;
+            if (navigator.share) {
+                // Utilise l'API Web Share si disponible (pour mobile)
+                navigator.share({
+                    title: 'Ma Micro-Dose Mood-Wave AI',
+                    text: textToShare,
+                    url: window.location.href // L'URL de l'application
+                }).then(() => {
+                    console.log('Contenu partagé avec succès');
+                }).catch((error) => {
+                    console.error('Erreur de partage:', error);
+                    // Fallback pour les navigateurs qui ne supportent pas navigator.share
+                    alert("Copiez le texte ci-dessous pour le partager :\n\n" + textToShare);
+                });
+            } else {
+                // Fallback pour les navigateurs qui ne supportent pas navigator.share
+                // Utilisation de document.execCommand('copy') car navigator.clipboard.writeText() peut ne pas fonctionner dans les iframes
+                const textArea = document.createElement("textarea");
+                textArea.value = textToShare;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    alert("Dose copiée dans le presse-papiers ! Vous pouvez la coller où vous voulez.");
+                } catch (err) {
+                    console.error('Impossible de copier le texte', err);
+                    alert("Impossible de copier la dose. Veuillez la sélectionner et la copier manuellement :\n\n" + textToShare);
+                }
+                document.body.removeChild(textArea);
+            }
+        });
+
+        // Enregistrement du Service Worker pour la PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker enregistré avec succès:', registration);
+                    })
+                    .catch(error => {
+                        console.error('Échec de l\'enregistrement du Service Worker:', error);
+                    });
+            });
+        }
+
+        // Gestion de l'authentification initiale lors du chargement de l'application
+        window.onload = async () => {
+            if (typeof __initial_auth_token !== 'undefined') {
+                try {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                    console.log("Connecté avec le jeton personnalisé.");
+                } catch (error) {
+                    console.error("Erreur de connexion avec le jeton personnalisé:", error);
+                    // En cas d'échec, tenter une connexion anonyme
+                    try {
+                        await signInAnonymously(auth);
+                        console.log("Connecté anonymement après échec du jeton.");
+                    } catch (anonError) {
+                        console.error("Erreur de connexion anonyme après échec du jeton:", anonError);
+                    }
+                }
+            } else {
+                try {
+                    await signInAnonymously(auth);
+                    console.log("Connecté anonymement (pas de jeton personnalisé fourni).");
+                } catch (error) {
+                    console.error("Erreur de connexion anonyme:", error);
+                }
+            }
+        };
+
+    </script>
+</body>
+</html>
+
